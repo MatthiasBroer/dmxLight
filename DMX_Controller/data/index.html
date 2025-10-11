@@ -42,7 +42,7 @@
 
         <!-- Sliders -->
         <div class="card">
-            <h2>DMX channel control 1-6</h2>
+            <h2>DMX channel control 1-16</h2>
 
             <label for="s1">Channel 1: <span id="val1">0</span></label>
             <input type="range" min="0" max="255" value="0" class="slider" id="s1">
@@ -62,11 +62,35 @@
             <label for="s6">Channel 6: <span id="val6">0</span></label>
             <input type="range" min="0" max="255" value="0" class="slider" id="s6">
 
-            <label for="s6">Channel 7: <span id="val7">0</span></label>
+            <label for="s7">Channel 7: <span id="val7">0</span></label>
             <input type="range" min="0" max="255" value="0" class="slider" id="s7">
             
-            <label for="s6">Channel 8: <span id="val8">0</span></label>
+            <label for="s8">Channel 8: <span id="val8">0</span></label>
             <input type="range" min="0" max="255" value="0" class="slider" id="s8">
+
+            <label for="s9">Channel 9: <span id="val9">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s9">
+
+            <label for="s10">Channel 10: <span id="val10">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s10">
+
+            <label for="s11">Channel 11: <span id="val11">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s11">
+
+            <label for="s12">Channel 12: <span id="val12">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s12">
+
+            <label for="s13">Channel 13: <span id="val13">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s13">
+
+            <label for="s14">Channel 14: <span id="val14">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s14">
+
+            <label for="s15">Channel 15: <span id="val15">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s15">
+
+            <label for="s16">Channel 16: <span id="val16">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s16">
         </div>
 
     </div>
@@ -119,7 +143,7 @@
         }
 
         function initSliders() {
-            for (let i = 1; i <= 8; i++) {
+            for (let i = 1; i <= 16; i++) {
                 let slider = document.getElementById('s' + i);
                 let output = document.getElementById('val' + i);
 
