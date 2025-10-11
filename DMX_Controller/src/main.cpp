@@ -8,7 +8,7 @@
 #define DMX_DE_PIN 4
 #define DMX_RE_PIN 5
 
-#define DMX_CHANNELS 8
+#define DMX_CHANNELS 16
 #define DMX_INTERVAL 30  // milliseconds
 
 uint8_t dmxData[DMX_CHANNELS + 1];  // +1 for start code
@@ -18,7 +18,7 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 // slider values
-int sliders[DMX_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};  // R,G,B,W
+int sliders[DMX_CHANNELS] = {};  // R,G,B,W
 
 // wave mode variables
 bool waveActive = false;
@@ -29,7 +29,7 @@ const int FADE_INTERVAL = 30; // ms per fade step
 const int FADE_STEP = 15;     // how fast values fade
 int waveStep = 0;
 int waveInterval = 100;  // default ms
-float waveValues[DMX_CHANNELS] = {0, 0, 0, 0}; // use float for smooth fading
+float waveValues[DMX_CHANNELS] = {}; // use float for smooth fading
 const float WAVE_STEP = 15.0; // fade speed per step
 
 // ===== Chaser variables =====
@@ -39,7 +39,7 @@ unsigned long chaserLastTime = 0;
 const int CHASER_INTERVAL_DEFAULT = 100;  // ms
 int chaserInterval = CHASER_INTERVAL_DEFAULT;
 int chaserStep = 0;
-float chaserValues[DMX_CHANNELS] = {0, 0, 0, 0}; // use float for smooth fading
+float chaserValues[DMX_CHANNELS] = {}; // use float for smooth fading
 const float CHASER_STEP = 15.0; // how fast channels fade
 
 bool ledState = false;
