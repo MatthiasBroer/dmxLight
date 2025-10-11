@@ -20,6 +20,26 @@
             <p><button id="button" class="button">Toggle</button></p>
         </div>
 
+        <!-- Color Wave Control -->
+        <div class="card">
+            <h2>Color Wave</h2>
+
+            <button id="waveButton" class="button">Start Wave</button>
+
+            <label for="waveSpeed">Wave Speed: <span id="waveSpeedVal">100</span> ms</label>
+            <input type="range" min="10" max="5000" value="100" class="slider" id="waveSpeed">
+        </div>
+
+        <!-- Chaser Control -->
+        <div class="card">
+            <h2>Channel Chaser</h2>
+
+            <button id="chaserButton" class="button">Start Chaser</button>
+
+            <label for="chaserSpeed">Chaser Speed: <span id="chaserSpeedVal">100</span> ms</label>
+            <input type="range" min="10" max="5000" value="100" class="slider" id="chaserSpeed">
+        </div>
+
         <!-- Sliders -->
         <div class="card">
             <h2>DMX channel control 1-6</h2>
@@ -41,6 +61,12 @@
 
             <label for="s6">Channel 6: <span id="val6">0</span></label>
             <input type="range" min="0" max="255" value="0" class="slider" id="s6">
+
+            <label for="s6">Channel 7: <span id="val7">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s7">
+            
+            <label for="s6">Channel 8: <span id="val8">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s8">
         </div>
 
     </div>
@@ -67,14 +93,13 @@
         }
 
         function onMessage(event) {
-            var state;
-            if (event.data == "1") {
-                state = "ON";
+            const msg = event.data;
+
+            // simple on/off state
+            if (msg == "1" || msg == "0") {
+                document.getElementById('state').innerHTML = (msg == "1" ? "ON" : "OFF");
+                return;
             }
-            else {
-                state = "OFF";
-            }
-            document.getElementById('state').innerHTML = state;
         }
 
         window.addEventListener('load', onLoad);
@@ -94,7 +119,7 @@
         }
 
         function initSliders() {
-            for (let i = 1; i <= 6; i++) {
+            for (let i = 1; i <= 8; i++) {
                 let slider = document.getElementById('s' + i);
                 let output = document.getElementById('val' + i);
 
@@ -116,6 +141,44 @@
             websocket.send(id + ":" + value);
             console.log("Sent -> " + id + ":" + value);
         }
+
+        function initWaveControls() {
+            const waveButton = document.getElementById('waveButton');
+            const waveSpeedSlider = document.getElementById('waveSpeed');
+            const waveSpeedVal = document.getElementById('waveSpeedVal');
+
+            waveButton.addEventListener('click', function() {
+                websocket.send('wave:toggle'); // toggle wave on/off
+            });
+
+            waveSpeedSlider.addEventListener('input', function() {
+                waveSpeedVal.innerHTML = this.value;
+                websocket.send('wave:speed:' + this.value); // send new speed
+            });
+        }
+
+        window.addEventListener('load', function() {
+            initWaveControls();
+        });
+
+        function initChaserControls() {
+            const chaserButton = document.getElementById('chaserButton');
+            const chaserSpeedSlider = document.getElementById('chaserSpeed');
+            const chaserSpeedVal = document.getElementById('chaserSpeedVal');
+
+            chaserButton.addEventListener('click', function() {
+                websocket.send('chaser:toggle'); // toggle chaser
+            });
+
+            chaserSpeedSlider.addEventListener('input', function() {
+                chaserSpeedVal.innerHTML = this.value;
+                websocket.send('chaser:speed:' + this.value); // set speed
+            });
+        }
+
+        window.addEventListener('load', function() {
+            initChaserControls();
+        });
     </script>
 </body>
 
