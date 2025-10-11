@@ -111,3 +111,65 @@ label span {
     background: #0f8b8d;
     cursor: pointer;
 }
+
+/* ==== Modern Multi-select Dropdown ==== */
+.dropdown {
+    position: relative;
+    width: 100%;
+    margin-top: 10px;
+    font-size: 1rem;
+}
+
+.dropdown-header {
+    background-color: #fff;
+    border: 2px solid #0f8b8d;
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    color: #143642;
+    font-weight: bold;
+    text-align: left;
+    transition: 0.2s ease;
+}
+
+.dropdown-header::after {
+    content: "▼";
+    float: right;
+    font-size: 0.9rem;
+    color: #0f8b8d;
+}
+
+.dropdown-header.active::after {
+    content: "▲";
+}
+
+.dropdown-list {
+    display: none;
+    position: absolute;
+    background-color: #fff;
+    width: 100%;
+    max-height: 250px;
+    overflow-y: auto;
+    border: 2px solid #0f8b8d;
+    border-radius: 8px;
+    z-index: 10;
+    box-shadow: 0px 4px 8px rgba(0,0,0,0.1);
+}
+
+.dropdown-list label {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.dropdown-list label:hover {
+    background-color: #f1f9f9;
+}
+
+.dropdown-list input[type="checkbox"] {
+    accent-color: #0f8b8d;
+    margin-right: 8px;
+}
