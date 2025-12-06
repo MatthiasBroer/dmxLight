@@ -9,7 +9,7 @@
 #define DMX_DE_PIN 4
 #define DMX_RE_PIN 5
 
-#define DMX_CHANNELS 16
+#define DMX_CHANNELS 24 // 6*4=24 channels for RGBWUV lights
 #define DMX_INTERVAL 30  // milliseconds
 
 uint8_t dmxData[DMX_CHANNELS + 1];  // +1 for start code
