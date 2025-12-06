@@ -68,6 +68,7 @@ struct WifiCredentials {
 // ===== Function Declarations =====
 // void connectWifi(const char* ssid, const char* password);
 void connectWifi();
+void createAPMode();
 void setupWebServerRoutes();
 String processor(const String& var);
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
@@ -299,6 +300,7 @@ void handleBreathFade() {
 // ===== Wi-Fi =====
 // void connectWifi(const char* ssid, const char* password) {
 void connectWifi() {
+    int retryCount = 0;
     Serial.print("Connecting to WiFi ..");
     WifiCredentials creds;
     creds = readJSON("/config.json");
@@ -308,18 +310,42 @@ void connectWifi() {
     // check if ssid is valid
     if (strlen(creds.ssid) == 0) {
         Serial.println("No WiFi credentials found in config.json");
+        createAPMode();
         return;
     }
 
     String ssidStr = String(creds.ssid);
     String passStr = String(creds.password);
+    WiFi.mode(WIFI_STA);
     WiFi.begin(creds.ssid, creds.password);
     while (WiFi.status() != WL_CONNECTED) {
         // Serial.print('.');
         Serial.print("Wifi SSID: "); Serial.print(ssidStr); Serial.print(" Password: "); Serial.println(passStr);
         delay(1000);
+        retryCount++;
+        if (retryCount >= 10) {
+            Serial.println("Failed to connect to WiFi. Creating AP mode...");
+            createAPMode();
+            return;
+        }
     }
     Serial.println(WiFi.localIP());
+}
+
+void createAPMode() {
+    const char* ap_ssid = "DMX_Controller_Setup";
+    const char* ap_password = "setup1234";
+
+    WiFi.mode(WIFI_AP);
+    // Define custom IP address and subnet
+    IPAddress local_IP(192, 168, 1, 1);
+    IPAddress gateway(192, 168, 1, 1);
+    IPAddress subnet(255, 255, 255, 0);
+    // Configure the AP with the custom IP
+    WiFi.softAPConfig(local_IP, gateway, subnet);
+    WiFi.softAP(ap_ssid, ap_password);
+
+    Serial.println("AP IP address: " + WiFi.softAPIP().toString());
 }
 
 // ===== Web Server =====
@@ -349,6 +375,40 @@ void setupWebServerRoutes() {
         request->send(response);
     });
 
+    server.on("/save", HTTP_POST, [](AsyncWebServerRequest *request){
+    String ssid, pass;
+
+    if (request->hasParam("ssid", true)) ssid = request->getParam("ssid", true)->value();
+    if (request->hasParam("pass", true)) pass = request->getParam("pass", true)->value();
+
+    if (ssid.length() > 0 && pass.length() > 0) {
+        // Save to SPIFFS
+        DynamicJsonDocument doc(1024);
+        doc["wifi_ssid"] = ssid;
+        doc["wifi_password"] = pass;
+
+        File file = SPIFFS.open("/config.json", "w");
+        if (!file) {
+            Serial.println("Failed to open config.json for writing");
+        } else {
+            serializeJson(doc, file);
+            file.close();
+            Serial.println("WiFi credentials saved!");
+        }
+
+        // Send response
+        request->send(200, "text/html", "<h2>Settings saved. Rebooting...</h2><script>setTimeout(()=>{location.reload();},2000);</script>");
+
+        // Optionally restart to apply new WiFi
+        delay(1000);
+        ESP.restart();
+        return;
+    } else {
+        request->send(400, "text/html", "SSID or Password empty!");
+    }
+});
+
+
     server.begin();
 }
 
@@ -356,8 +416,14 @@ void setupWebServerRoutes() {
 // ===== Template Processor =====
 String processor(const String& var) {
     if(var == "STATE") return ledState ? "ON" : "OFF";
-    if (var == "CURRENT_SSID") return WiFi.SSID();
-    if (var == "CURRENT_PASS") return "********";      // optional, hide stored password
+    if (var == "CURRENT_SSID") {
+        WifiCredentials creds = readJSON("/config.json");
+        return String(creds.ssid);
+    }
+    if (var == "CURRENT_PASS"){
+        WifiCredentials creds = readJSON("/config.json");
+        return String(creds.password);
+    } 
     if (var == "CURRENT_IP")   return WiFi.localIP().toString();
     return String();
 }
@@ -490,6 +556,7 @@ WifiCredentials readJSON(const char* path) {
         return {nullptr, nullptr};
     }
     static  DynamicJsonDocument doc(1024);
+    // JsonDocument doc(1024);
     deserializeJson(doc, file);
     file.close();
     WifiCredentials creds;
@@ -501,13 +568,14 @@ WifiCredentials readJSON(const char* path) {
 
 void writeJSON(const char* path) {
    DynamicJsonDocument doc(1024);
-   doc["wifi_ssid"] = "NewSSID";
-   doc["wifi_password"] = "NewPassword";
-   File file = SPIFFS.open(path, "w");
-   if (!file) {
-       Serial.println("Failed to open file for writing");
-       return;
-   }
-   serializeJson(doc, file);
-   file.close();
+    // JsonDocument doc;
+    doc["wifi_ssid"] = "NewSSID";
+    doc["wifi_password"] = "NewPassword";
+    File file = SPIFFS.open(path, "w");
+    if (!file) {
+        Serial.println("Failed to open file for writing");
+        return;
+    }
+    serializeJson(doc, file);
+    file.close();
 }
