@@ -16,12 +16,24 @@
     </div>
 
     <div class="content">
-        <div class="card">
-            <h2>Output - GPIO 2</h2>
-            <p class="state">state: <span id="state">%STATE%</span></p>
-            <p><button id="button" class="button">Toggle</button></p>
-        </div>
+        <h2>Current WiFi Settings</h2>
 
+        <p><strong>Connected SSID:</strong> %CURRENT_SSID%</p>
+        <p><strong>Password:</strong> ******</p>
+        <p><strong>Local IP:</strong> %CURRENT_IP%</p>
+
+        <hr>
+
+        <h2>WiFi Configuration</h2>
+        <form action="/save" method="post">
+            <label>WiFi SSID:</label><br>
+            <input type="text" name="ssid" value="%CURRENT_SSID%" required><br>
+
+            <label>Password:</label><br>
+            <input type="password" name="pass" value="%CURRENT_PASS%" required><br><br>
+
+            <button type="submit">Save</button>
+        </form>
     </div>
 </body>
 
