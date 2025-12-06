@@ -3,6 +3,7 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <WiFi.h>
+//#include <WiFiManager.h>
 
 #define DMX_TX_PIN 10
 #define DMX_DE_PIN 4
@@ -288,8 +289,9 @@ void handleBreathFade() {
 
 // ===== Wi-Fi =====
 void connectWifi(const char* ssid, const char* password) {
-    WiFi.begin(ssid, password);
     Serial.print("Connecting to WiFi ..");
+  
+    WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
         Serial.print('.');
         delay(1000);
@@ -305,6 +307,15 @@ void setupWebServerRoutes() {
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         AsyncWebServerResponse *response = request->beginResponse(
             SPIFFS, "/index.html", "text/html"
+        );
+        response->addHeader("Content-Encoding", "utf-8");
+        response->addHeader("Content-Type", "text/html; charset=utf-8");
+        request->send(response);
+    });
+
+    server.on("/setup.html", HTTP_GET, [](AsyncWebServerRequest *request){
+        AsyncWebServerResponse *response = request->beginResponse(
+            SPIFFS, "/setup.html", "text/html"
         );
         response->addHeader("Content-Encoding", "utf-8");
         response->addHeader("Content-Type", "text/html; charset=utf-8");
