@@ -81,8 +81,6 @@ void handleBreath();
 // ===== Setup =====
 void setup() {
     Serial.begin(115200);
-    while (!Serial) delay(10);
-
     Serial.println("DMX controller starting...");
 
     if (!SPIFFS.begin(true)) {
