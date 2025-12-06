@@ -39,10 +39,35 @@
             <label for="chaserSpeed">Chaser Speed: <span id="chaserSpeedVal">100</span> ms</label>
             <input type="range" min="10" max="5000" value="100" class="slider" id="chaserSpeed">
         </div>
+        
+        <!-- Breath Effect Control -->
+        <div class="card">
+            <h2>Breath Effect</h2>
+
+            <button id="breathButton" class="button">Start Breath</button>
+
+            <label for="breathSpeed">Speed: <span id="breathSpeedVal">5</span></label>
+            <input type="range" min="1" max="100" value="5" class="slider" id="breathSpeed">
+
+            <label for="breathMin">Min Brightness: <span id="breathMinVal">10</span></label>
+            <input type="range" min="0" max="255" value="10" class="slider" id="breathMin">
+
+            <label for="breathMax">Max Brightness: <span id="breathMaxVal">255</span></label>
+            <input type="range" min="0" max="255" value="255" class="slider" id="breathMax">
+
+            <label for="breathChannelsDropdown">Affected Channels:</label>
+            <div class="dropdown">
+                <div class="dropdown-header" id="breathChannelsDropdown">Select Channels</div>
+                <div class="dropdown-list" id="breathDropdownList">
+                    <!-- Channels populated dynamically -->
+                </div>
+            </div>
+            <p><button id="breathApply" class="button">Apply Channels</button></p>
+        </div>
 
         <!-- Sliders -->
         <div class="card">
-            <h2>DMX channel control 1-6</h2>
+            <h2>DMX channel control 1-16</h2>
 
             <label for="s1">Channel 1: <span id="val1">0</span></label>
             <input type="range" min="0" max="255" value="0" class="slider" id="s1">
@@ -62,11 +87,35 @@
             <label for="s6">Channel 6: <span id="val6">0</span></label>
             <input type="range" min="0" max="255" value="0" class="slider" id="s6">
 
-            <label for="s6">Channel 7: <span id="val7">0</span></label>
+            <label for="s7">Channel 7: <span id="val7">0</span></label>
             <input type="range" min="0" max="255" value="0" class="slider" id="s7">
             
-            <label for="s6">Channel 8: <span id="val8">0</span></label>
+            <label for="s8">Channel 8: <span id="val8">0</span></label>
             <input type="range" min="0" max="255" value="0" class="slider" id="s8">
+
+            <label for="s9">Channel 9: <span id="val9">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s9">
+
+            <label for="s10">Channel 10: <span id="val10">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s10">
+
+            <label for="s11">Channel 11: <span id="val11">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s11">
+
+            <label for="s12">Channel 12: <span id="val12">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s12">
+
+            <label for="s13">Channel 13: <span id="val13">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s13">
+
+            <label for="s14">Channel 14: <span id="val14">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s14">
+
+            <label for="s15">Channel 15: <span id="val15">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s15">
+
+            <label for="s16">Channel 16: <span id="val16">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s16">
         </div>
 
     </div>
@@ -119,7 +168,7 @@
         }
 
         function initSliders() {
-            for (let i = 1; i <= 8; i++) {
+            for (let i = 1; i <= 16; i++) {
                 let slider = document.getElementById('s' + i);
                 let output = document.getElementById('val' + i);
 
@@ -179,6 +228,82 @@
         window.addEventListener('load', function() {
             initChaserControls();
         });
+
+        function initBreathControls() {
+            const breathButton = document.getElementById('breathButton');
+            const speedSlider = document.getElementById('breathSpeed');
+            const speedVal = document.getElementById('breathSpeedVal');
+            const minSlider = document.getElementById('breathMin');
+            const minVal = document.getElementById('breathMinVal');
+            const maxSlider = document.getElementById('breathMax');
+            const maxVal = document.getElementById('breathMaxVal');
+            const applyButton = document.getElementById('breathApply');
+
+            // Modern dropdown
+            const dropdownHeader = document.getElementById('breathChannelsDropdown');
+            const dropdownList = document.getElementById('breathDropdownList');
+
+            // Populate dropdown with 512 channels
+            for (let i = 1; i <= 512; i++) {
+                const label = document.createElement('label');
+                label.innerHTML = `<input type="checkbox" value="${i}"> Channel ${i}`;
+                dropdownList.appendChild(label);
+            }
+
+            dropdownHeader.addEventListener('click', () => {
+                dropdownList.style.display =
+                    dropdownList.style.display === 'block' ? 'none' : 'block';
+                dropdownHeader.classList.toggle('active');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!dropdownHeader.contains(e.target) && !dropdownList.contains(e.target)) {
+                    dropdownList.style.display = 'none';
+                    dropdownHeader.classList.remove('active');
+                }
+            });
+
+            breathButton.addEventListener('click', function() {
+                websocket.send('breath:toggle');
+            });
+
+            speedSlider.addEventListener('input', function() {
+                speedVal.innerHTML = this.value;
+                websocket.send('breath:speed:' + this.value);
+            });
+
+            minSlider.addEventListener('input', function() {
+                minVal.innerHTML = this.value;
+                websocket.send('breath:min:' + this.value);
+            });
+
+            maxSlider.addEventListener('input', function() {
+                maxVal.innerHTML = this.value;
+                websocket.send('breath:max:' + this.value);
+            });
+
+            applyButton.addEventListener('click', function() {
+                const selected = Array.from(
+                    dropdownList.querySelectorAll('input[type="checkbox"]:checked')
+                ).map(cb => cb.value).join(',');
+                websocket.send('breath:channels:' + selected);
+                console.log('Breath channels set ->', selected);
+
+                // Update dropdown header text
+                if (selected.length === 0) {
+                    dropdownHeader.textContent = "Select Channels";
+                } else {
+                    dropdownHeader.textContent = `${selected.split(',').length} selected`;
+                }
+                dropdownList.style.display = 'none';
+                dropdownHeader.classList.remove('active');
+            });
+        }
+
+        window.addEventListener('load', initBreathControls);
+
+
     </script>
 </body>
 

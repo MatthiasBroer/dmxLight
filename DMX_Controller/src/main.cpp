@@ -8,7 +8,7 @@
 #define DMX_DE_PIN 4
 #define DMX_RE_PIN 5
 
-#define DMX_CHANNELS 8
+#define DMX_CHANNELS 16
 #define DMX_INTERVAL 30  // milliseconds
 
 uint8_t dmxData[DMX_CHANNELS + 1];  // +1 for start code
@@ -18,7 +18,7 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 // slider values
-int sliders[DMX_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};  // R,G,B,W
+int sliders[DMX_CHANNELS] = {};  // R,G,B,W
 
 // wave mode variables
 bool waveActive = false;
@@ -29,7 +29,7 @@ const int FADE_INTERVAL = 30; // ms per fade step
 const int FADE_STEP = 15;     // how fast values fade
 int waveStep = 0;
 int waveInterval = 100;  // default ms
-float waveValues[DMX_CHANNELS] = {0, 0, 0, 0}; // use float for smooth fading
+float waveValues[DMX_CHANNELS] = {}; // use float for smooth fading
 const float WAVE_STEP = 15.0; // fade speed per step
 
 // ===== Chaser variables =====
@@ -39,8 +39,22 @@ unsigned long chaserLastTime = 0;
 const int CHASER_INTERVAL_DEFAULT = 100;  // ms
 int chaserInterval = CHASER_INTERVAL_DEFAULT;
 int chaserStep = 0;
-float chaserValues[DMX_CHANNELS] = {0, 0, 0, 0}; // use float for smooth fading
+float chaserValues[DMX_CHANNELS] = {}; // use float for smooth fading
 const float CHASER_STEP = 15.0; // how fast channels fade
+
+// ===== Breath Effect Variables =====
+bool breathActive = false;
+bool breathFading = false;
+unsigned long breathLastTime = 0;
+const int BREATH_INTERVAL_DEFAULT = 30;  // update interval in ms
+int breathInterval = BREATH_INTERVAL_DEFAULT;
+float breathPhase = 0.0; // phase of sine wave
+float breathSpeed = 0.05; // speed of the breathing
+int breathMin = 10;
+int breathMax = 255;
+bool breathIncreasing = true;
+int breathChannels[512] = {}; // store whether each channel is active
+
 
 bool ledState = false;
 
@@ -61,12 +75,12 @@ void handleDMXUpdate();
 void handleWaveFade();
 void handleChaserFade();
 void handleChaser();
+void handleBreathFade();
+void handleBreath();
 
 // ===== Setup =====
 void setup() {
     Serial.begin(115200);
-    while (!Serial) delay(10);
-
     Serial.println("DMX controller starting...");
 
     if (!SPIFFS.begin(true)) {
@@ -116,6 +130,14 @@ void handleDMXUpdate() {
         }
         else if (chaserFading) {
             handleChaserFade();
+        }
+
+        if (breathActive) {
+            breathFading = false;
+            handleBreath();
+        }
+        else if (breathFading) {
+            handleBreathFade();
         }
 
         updateDMXFromSliders();
@@ -226,6 +248,44 @@ void handleChaserFade() {
     }
 }
 
+void handleBreath() {
+    unsigned long now = millis();
+    if (now - breathLastTime >= breathInterval) {
+        breathLastTime = now;
+
+        // Sine wave calculation between min and max
+        float intensity = (sin(breathPhase) + 1.0) / 2.0; // 0 → 1
+        int value = breathMin + intensity * (breathMax - breathMin);
+
+        for (int i = 0; i < DMX_CHANNELS; i++) {
+            if (breathChannels[i]) {
+                sliders[i] = value;
+            }
+        }
+
+        breathPhase += breathSpeed;
+        if (breathPhase > 2 * PI) breathPhase -= 2 * PI;
+    }
+}
+
+void handleBreathFade() {
+    unsigned long now = millis();
+    if (now - waveFadeLastTime >= FADE_INTERVAL) {
+        waveFadeLastTime = now;
+        bool stillFading = false;
+
+        for (int i = 0; i < DMX_CHANNELS; i++) {
+            if (sliders[i] > 0) {
+                sliders[i] -= FADE_STEP;
+                if (sliders[i] < 0) sliders[i] = 0;
+                stillFading = true;
+            }
+        }
+
+        if (!stillFading) breathFading = false;
+    }
+}
+
 // ===== Wi-Fi =====
 void connectWifi(const char* ssid, const char* password) {
     WiFi.begin(ssid, password);
@@ -243,15 +303,26 @@ void setupWebServerRoutes() {
     server.addHandler(&ws);
 
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(SPIFFS, "/index.html", "text/html", false, processor);
+        AsyncWebServerResponse *response = request->beginResponse(
+            SPIFFS, "/index.html", "text/html"
+        );
+        response->addHeader("Content-Encoding", "utf-8");
+        response->addHeader("Content-Type", "text/html; charset=utf-8");
+        request->send(response);
     });
 
     server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(SPIFFS, "/style.css", "text/css");
+        AsyncWebServerResponse *response = request->beginResponse(
+            SPIFFS, "/style.css", "text/css"
+        );
+        response->addHeader("Content-Encoding", "utf-8");
+        response->addHeader("Content-Type", "text/css; charset=utf-8");
+        request->send(response);
     });
 
     server.begin();
 }
+
 
 // ===== Template Processor =====
 String processor(const String& var) {
@@ -320,6 +391,45 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         else if (msg.startsWith("chaser:speed:")) {
             chaserInterval = msg.substring(13).toInt();
             Serial.printf("Chaser speed set to %d ms\n", chaserInterval);
+        }
+    }
+    else if (msg.startsWith("breath:")) {
+        if (msg == "breath:toggle") {
+            if (breathActive) {
+                breathActive = false;
+                breathFading = true;
+                Serial.println("Breath effect stopped, fading out...");
+            } else {
+                breathActive = true;
+                Serial.println("Breath effect started");
+            }
+        }
+        else if (msg.startsWith("breath:speed:")) {
+            breathSpeed = msg.substring(13).toFloat() / 100.0;
+            Serial.printf("Breath speed set to %.2f\n", breathSpeed);
+        }
+        else if (msg.startsWith("breath:min:")) {
+            breathMin = msg.substring(11).toInt();
+            Serial.printf("Breath min set to %d\n", breathMin);
+        }
+        else if (msg.startsWith("breath:max:")) {
+            breathMax = msg.substring(11).toInt();
+            Serial.printf("Breath max set to %d\n", breathMax);
+        }
+        else if (msg.startsWith("breath:channels:")) {
+            String list = msg.substring(16);
+            for (int i = 0; i < 512; i++) breathChannels[i] = 0;
+            int start = 0;
+            while (start >= 0) {
+                int comma = list.indexOf(',', start);
+                String token = (comma == -1) ? list.substring(start) : list.substring(start, comma);
+                int ch = token.toInt();
+                if (ch >= 1 && ch <= DMX_CHANNELS) breathChannels[ch - 1] = 1;
+                if (comma == -1) break;
+                start = comma + 1;
+            }
+            Serial.print("Breath channels updated: ");
+            Serial.println(list);
         }
     }
     else {
