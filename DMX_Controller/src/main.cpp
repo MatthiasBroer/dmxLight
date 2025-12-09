@@ -336,7 +336,7 @@ void createAPMode() {
     writeJSON("/config.json");
     
     const char* ap_ssid = "DMX_Controller_Setup";
-    const char* ap_password = "setup1234";
+    const char* ap_password = "dmxController";
 
     WiFi.mode(WIFI_AP);
     // Define custom IP address and subnet
