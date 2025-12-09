@@ -333,6 +333,8 @@ void connectWifi() {
 }
 
 void createAPMode() {
+    writeJSON("/config.json");
+    
     const char* ap_ssid = "DMX_Controller_Setup";
     const char* ap_password = "setup1234";
 
@@ -569,8 +571,8 @@ WifiCredentials readJSON(const char* path) {
 void writeJSON(const char* path) {
    DynamicJsonDocument doc(1024);
     // JsonDocument doc;
-    doc["wifi_ssid"] = "NewSSID";
-    doc["wifi_password"] = "NewPassword";
+    doc["wifi_ssid"] = "";
+    doc["wifi_password"] = "";
     File file = SPIFFS.open(path, "w");
     if (!file) {
         Serial.println("Failed to open file for writing");
