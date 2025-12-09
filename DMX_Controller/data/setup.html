@@ -1,0 +1,99 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <title>WiFi Setup</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="icon" href="data:,">
+        <link rel="stylesheet" href="style.css">
+    </head>
+
+    <body>
+        <div class="topnav">
+            <h1>WiFi Configuration</h1>
+            <a href="/"><button class="button">Home</button></a>
+        </div>
+
+        <div class="content">
+            <!-- Current WiFi Status -->
+            <div class="card">
+                <h2>Current WiFi Status</h2>
+
+                <p><strong>Connected SSID:</strong> <span id="ssidDisplay">%CURRENT_SSID%</span></p>
+                <p><strong>Local IP:</strong> %CURRENT_IP%</p>
+            </div>
+
+            <!-- WiFi Configuration -->
+            <div class="card">
+                <h2>Change WiFi Settings</h2>
+
+                <form id="wifiForm" action="/save" method="post">
+
+                    <label for="ssid">WiFi SSID:</label>
+                    <input type="text" id="ssid" name="ssid" value="%CURRENT_SSID%" required>
+
+                    <label for="pass">Password:</label>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <input type="password" id="pass" name="pass" value="%CURRENT_PASS%" required style="flex:1;">
+                        <button type="button" id="showPassBtn" class="button" style="padding:5px 10px;">Show</button>
+                    </div>
+
+                    <p id="wifiFeedback" 
+                        style="color: var(--accent-color); font-weight: 600; min-height: 20px; margin-top: 10px;">
+                    </p>
+
+                    <div style="margin-top: 20px;">
+                        <button type="submit" class="button">Save Settings</button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+
+        <script>
+            // Show / Hide Password
+            document.getElementById("showPassBtn").addEventListener("click", function () {
+                const passField = document.getElementById("pass");
+                if (passField.type === "password") {
+                    passField.type = "text";
+                    this.innerText = "Show";
+                } else {
+                    passField.type = "password";
+                    this.innerText = "Show";
+                }
+            });
+
+            // Simple validation / status feedback
+            const form = document.getElementById("wifiForm");
+            const feedback = document.getElementById("wifiFeedback");
+
+            form.addEventListener("submit", function (e) {
+                const ssid = document.getElementById("ssid").value.trim();
+                const pass = document.getElementById("pass").value.trim();
+
+                if (ssid.length < 1) {
+                    e.preventDefault();
+                    feedback.textContent = "SSID cannot be empty.";
+                    return;
+                }
+
+                if (pass.length < 1) {
+                    e.preventDefault();
+                    feedback.textContent = "Password cannot be empty.";
+                    return;
+                }
+
+                // Visual feedback before actual ESP32 page redirect
+                feedback.textContent = "Saving settings...";
+            });
+
+            // Highlight current SSID if empty (not connected)
+            window.addEventListener("load", () => {
+                const ssidDisplay = document.getElementById("ssidDisplay");
+                if (ssidDisplay.innerText === "" || ssidDisplay.innerText === "%CURRENT_SSID%") {
+                    ssidDisplay.style.color = "red";
+                    ssidDisplay.innerText = "Not connected";
+                }
+            });
+        </script>
+    </body>
+</html>

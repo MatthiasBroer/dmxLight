@@ -11,15 +11,11 @@
 <body>
     <div class="topnav">
         <h1>DMX Web Server</h1>
+        <!-- go back to setup file -->
+        <a href="/setup.html"><button class="button">Settings</button></a>
     </div>
 
     <div class="content">
-        <div class="card">
-            <h2>Output - GPIO 2</h2>
-            <p class="state">state: <span id="state">%STATE%</span></p>
-            <p><button id="button" class="button">Toggle</button></p>
-        </div>
-
         <!-- Color Wave Control -->
         <div class="card">
             <h2>Color Wave</h2>
@@ -67,7 +63,7 @@
 
         <!-- Sliders -->
         <div class="card">
-            <h2>DMX channel control 1-16</h2>
+            <h2>DMX channel control 1-24</h2>
 
             <label for="s1">Channel 1: <span id="val1">0</span></label>
             <input type="range" min="0" max="255" value="0" class="slider" id="s1">
@@ -116,6 +112,30 @@
 
             <label for="s16">Channel 16: <span id="val16">0</span></label>
             <input type="range" min="0" max="255" value="0" class="slider" id="s16">
+
+            <label for="s17">Channel 17: <span id="val17">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s17">
+
+            <label for="s18">Channel 18: <span id="val18">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s18">
+
+            <label for="s19">Channel 19: <span id="val19">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s19">
+
+            <label for="s20">Channel 20: <span id="val20">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s20">
+
+            <label for="s21">Channel 21: <span id="val21">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s21">
+
+            <label for="s22">Channel 22: <span id="val22">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s22">
+
+            <label for="s23">Channel 23: <span id="val23">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s23">
+
+            <label for="s24">Channel 24: <span id="val24">0</span></label>
+            <input type="range" min="0" max="255" value="0" class="slider" id="s24">
         </div>
 
     </div>
@@ -155,12 +175,7 @@
 
         function onLoad(event) {
             initWebSocket();
-            initButton();
             initSliders();
-        }
-
-        function initButton() {
-            document.getElementById('button').addEventListener('click', toggle);
         }
 
         function toggle() {
@@ -168,7 +183,7 @@
         }
 
         function initSliders() {
-            for (let i = 1; i <= 16; i++) {
+            for (let i = 1; i <= 24; i++) {
                 let slider = document.getElementById('s' + i);
                 let output = document.getElementById('val' + i);
 
