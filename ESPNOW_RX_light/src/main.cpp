@@ -1,5 +1,8 @@
 #include <Arduino.h>
 #include <NeoPixelBus.h>
+#include <esp_now.h>
+#include <WiFi.h>
+#include <esp_wifi.h>
 
 // struct that holds the DMX data to be sent via ESP-NOW
 struct DMXDataPacket {
@@ -9,19 +12,23 @@ struct DMXDataPacket {
   uint8_t white;
 } dmxPacket;
  
+uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x66};
 
-#define LED_PIN 8
+#define LED_PIN 4
 #define NUM_LEDS 20
 
 // NeoPixelBus<NeoGrbwFeature, NeoEsp32Rmt0800KbpsMethod> strip(NUM_LEDS, LED_PIN);
-NeoPixelBus<NeoGrbwFeature, NeoEsp32BitBang800KbpsMethod> strip(NUM_LEDS, LED_PIN);
+// NeoPixelBus<NeoGrbwFeature, NeoEsp32BitBang800KbpsMethod> strip(NUM_LEDS, LED_PIN);
+NeoPixelBus<NeoGrbwFeature, NeoEsp32Rmt0800KbpsMethod> strip(NUM_LEDS, LED_PIN);
 
 // Base color (full intensity)
 RgbwColor WW_Color(0, 255, 0, 0);
 
-
 // functions
 void breathe(RgbwColor baseColor, byte period = 128, byte lowValue = 0, byte highValue = 255);
+bool startupChase(RgbwColor color, unsigned long speedMs = 100);
+void setLightOnStrip(RgbwColor color);
+void onDataRecv(const uint8_t* mac, const uint8_t *incomingData, int len);
 
 // Breathing state variables
 float brightness = 0.0;   // 0.0 - 1.0
@@ -31,13 +38,33 @@ unsigned long lastUpdate = 0;
 
 int state = 0;
 
+
 void setup() {
   Serial.begin(115200);
   strip.Begin();
   strip.Show();
+
+  WiFi.mode(WIFI_STA);
+  
+  esp_err_t err = esp_wifi_set_mac(WIFI_IF_STA, &broadcastAddress[0]);
+  if (err == ESP_OK) {
+    Serial.println("setting MAC address SUCCESS");
+  }
+
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+  esp_now_register_recv_cb(esp_now_recv_cb_t(onDataRecv));
 }
 
 void loop() {
+  if (startupChase(RgbwColor(0, 125, 0, 0), 100)) {
+    // once startup chase is done, start the breathing effect
+    breathe(RgbwColor(dmxPacket.red, dmxPacket.white, dmxPacket.green, dmxPacket.blue), 1, 1, 255);
+    // setLightOnStrip(RgbwColor(dmxPacket.red, dmxPacket.white, dmxPacket.green, dmxPacket.blue));
+  }
+  
   static unsigned long lastStateChange = 0;
   const unsigned long stateDuration = 10000; // 10 seconds per state
   // period: 128 (~medium speed), lowValue=50, highValue=200
@@ -45,7 +72,10 @@ void loop() {
   {
   case 0: // white
     // breath with with color
-    breathe(WW_Color, 1, 1, 255);
+    dmxPacket.red = 0;
+    dmxPacket.green = 0;
+    dmxPacket.blue = 0;
+    dmxPacket.white = 255;
     if (millis() - lastStateChange >= stateDuration) {
       lastStateChange = millis();
       state = 1; // move to next state
@@ -53,17 +83,23 @@ void loop() {
     }
     break;
   case 1: // red
-    // breath with green color
-    breathe(RgbwColor(255, 0, 0, 0), 1, 1, 255);
+    // breath with RED color
+    dmxPacket.red = 255;
+    dmxPacket.green = 0;
+    dmxPacket.blue = 0;
+    dmxPacket.white = 0;
       if (millis() - lastStateChange >= stateDuration) {
         lastStateChange = millis();
         state = 2; // move to next state
         Serial.println("Switching form 1 to 2 [green]");
       }
     break;
-  case 2: // greed
-    // breath with blue color
-    breathe(RgbwColor(0, 0, 255, 0), 1, 1, 255);
+  case 2: // green
+    // breath with green color
+    dmxPacket.red = 0;
+    dmxPacket.green = 255;
+    dmxPacket.blue = 0;
+    dmxPacket.white = 0;
     if (millis() - lastStateChange >= stateDuration) {
       lastStateChange = millis();
       state = 3; // move to next state
@@ -71,8 +107,11 @@ void loop() {
     }
     break;
   case 3: // blue
-    // breath with white color
-    breathe(RgbwColor(0, 0, 0, 255), 1, 1, 255);
+    // breath with blue color
+    dmxPacket.red = 0;
+    dmxPacket.green = 0;
+    dmxPacket.blue = 255;
+    dmxPacket.white = 0;
     if (millis() - lastStateChange >= stateDuration) {
       lastStateChange = millis();
       state = 0; // loop back to first state
@@ -84,8 +123,7 @@ void loop() {
     break;
   }
   
-  // breathe with red color
-  // breathe(RgbwColor(255, 0, 0, 0), 1, 1, 255);
+  
 }
 
 // Non-blocking breathing function
@@ -151,4 +189,52 @@ void breathe(RgbwColor baseColor, byte period, byte lowValue, byte highValue) {
     }
     strip.Show();
   }
+}
+
+void setLightOnStrip(RgbwColor color) {
+  for (uint16_t i = 0; i < NUM_LEDS; i++) {
+    strip.SetPixelColor(i, color);
+  }
+  strip.Show();
+}
+
+bool startupChase(RgbwColor color, unsigned long speedMs) {
+  static uint16_t pos = 0;
+  static unsigned long lastUpdate = 0;
+  static bool finished = false;
+
+  const uint8_t fadeAmount = 40; // higher = faster fade
+
+  if (finished) return true; // already done
+
+  unsigned long now = millis();
+  if (now - lastUpdate >= speedMs) {
+    lastUpdate = now;
+
+    // fade all pixels a bit
+    for (uint16_t i = 0; i < NUM_LEDS; i++) {
+      RgbwColor c = strip.GetPixelColor(i);
+
+      c.R = (c.R > fadeAmount) ? c.R - fadeAmount : 0;
+      c.G = (c.G > fadeAmount) ? c.G - fadeAmount : 0;
+      c.B = (c.B > fadeAmount) ? c.B - fadeAmount : 0;
+      c.W = (c.W > fadeAmount) ? c.W - fadeAmount : 0;
+
+      strip.SetPixelColor(i, c);
+    }
+
+    // set current pixel to full color
+    strip.SetPixelColor(pos, color);
+    strip.Show();
+
+    pos++;
+    if (pos >= NUM_LEDS) {
+      finished = true;
+    }
+  }
+  return false;
+}
+
+void onDataRecv(const uint8_t* mac, const uint8_t *incomingData, int len) {
+  memcpy(&dmxPacket, incomingData, sizeof(dmxPacket));
 }
