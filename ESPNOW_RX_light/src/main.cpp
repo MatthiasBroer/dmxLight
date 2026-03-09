@@ -10,7 +10,9 @@ struct DMXDataPacket {
   uint8_t green;
   uint8_t blue;
   uint8_t white;
-} dmxPacket;
+};;// dmxPacket;
+
+DMXDataPacket dmx; 
  
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x66};
 
@@ -56,74 +58,27 @@ void setup() {
     return;
   }
   esp_now_register_recv_cb(esp_now_recv_cb_t(onDataRecv));
+
+  while (!startupChase(WW_Color, 100)) {
+    // wait for startup chase to finish
+  }
 }
 
 void loop() {
-  if (startupChase(RgbwColor(0, 125, 0, 0), 100)) {
-    // once startup chase is done, start the breathing effect
-    breathe(RgbwColor(dmxPacket.red, dmxPacket.white, dmxPacket.green, dmxPacket.blue), 1, 1, 255);
-    // setLightOnStrip(RgbwColor(dmxPacket.red, dmxPacket.white, dmxPacket.green, dmxPacket.blue));
-  }
-  
-  static unsigned long lastStateChange = 0;
-  const unsigned long stateDuration = 10000; // 10 seconds per state
-  // period: 128 (~medium speed), lowValue=50, highValue=200
-  switch (state)
-  {
-  case 0: // white
-    // breath with with color
-    dmxPacket.red = 0;
-    dmxPacket.green = 0;
-    dmxPacket.blue = 0;
-    dmxPacket.white = 255;
-    if (millis() - lastStateChange >= stateDuration) {
-      lastStateChange = millis();
-      state = 1; // move to next state
-      Serial.println("Switching form 0 to 1 [red]");
-    }
-    break;
-  case 1: // red
-    // breath with RED color
-    dmxPacket.red = 255;
-    dmxPacket.green = 0;
-    dmxPacket.blue = 0;
-    dmxPacket.white = 0;
-      if (millis() - lastStateChange >= stateDuration) {
-        lastStateChange = millis();
-        state = 2; // move to next state
-        Serial.println("Switching form 1 to 2 [green]");
-      }
-    break;
-  case 2: // green
-    // breath with green color
-    dmxPacket.red = 0;
-    dmxPacket.green = 255;
-    dmxPacket.blue = 0;
-    dmxPacket.white = 0;
-    if (millis() - lastStateChange >= stateDuration) {
-      lastStateChange = millis();
-      state = 3; // move to next state
-      Serial.println("Switching form 2 to 3 [blue]");
-    }
-    break;
-  case 3: // blue
-    // breath with blue color
-    dmxPacket.red = 0;
-    dmxPacket.green = 0;
-    dmxPacket.blue = 255;
-    dmxPacket.white = 0;
-    if (millis() - lastStateChange >= stateDuration) {
-      lastStateChange = millis();
-      state = 0; // loop back to first state
-      Serial.println("Switching form 3 to 0 [white]");
-    }
-    break;
+  static unsigned long lastPrint = 0;
+  static unsigned long lastLightUpdate = 0;
+  unsigned long now = millis();
 
-  default:
-    break;
+  if (now - lastPrint >= 1000) {
+    lastPrint = now;
+    Serial.printf("Current DMX data: R=%d G=%d B=%d W=%d\n", 
+                  dmx.red, dmx.green, dmx.blue, dmx.white);
   }
-  
-  
+
+  if (now - lastLightUpdate >= 10) { // update light every 50ms for smooth breathing
+    lastLightUpdate = now;
+    setLightOnStrip(RgbwColor(dmx.red, dmx.white, dmx.green, dmx.blue));
+  }  
 }
 
 // Non-blocking breathing function
@@ -192,10 +147,15 @@ void breathe(RgbwColor baseColor, byte period, byte lowValue, byte highValue) {
 }
 
 void setLightOnStrip(RgbwColor color) {
-  for (uint16_t i = 0; i < NUM_LEDS; i++) {
-    strip.SetPixelColor(i, color);
-  }
-  strip.Show();
+  RgbwColor scaledColor(
+      (uint8_t)(color.R),
+      (uint8_t)(color.G),
+      (uint8_t)(color.B),
+      (uint8_t)(color.W)
+    );
+    for (uint16_t i = 0; i < NUM_LEDS; i++) strip.SetPixelColor(i, scaledColor);
+    strip.Show();
+    return;
 }
 
 bool startupChase(RgbwColor color, unsigned long speedMs) {
@@ -236,5 +196,7 @@ bool startupChase(RgbwColor color, unsigned long speedMs) {
 }
 
 void onDataRecv(const uint8_t* mac, const uint8_t *incomingData, int len) {
-  memcpy(&dmxPacket, incomingData, sizeof(dmxPacket));
+  memcpy(&dmx, incomingData, sizeof(DMXDataPacket));
+  Serial.printf("Received DMX data via ESP-NOW: R=%d G=%d B=%d W=%d\n", 
+                dmx.red, dmx.green, dmx.blue, dmx.white);
 }
