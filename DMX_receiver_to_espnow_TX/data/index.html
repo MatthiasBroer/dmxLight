@@ -1,0 +1,125 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>DMX RX to Wireless TX</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/favicon.ico" href="favicon.ico">
+</head>
+
+<body>
+    <div class="topnav">
+        <h1>DMX RX to Wireless TX</h1>
+    </div>
+
+    <div class="content">  
+
+        <div class="card">
+            <h2>DMX Settings</h2>
+
+            <label>Start Address</label><br>
+            <input type="number" id="start" min="1" max="512"><br><br>
+
+            <label>Channels to forward</label><br>
+            <input type="number" id="count" min="1" max="512"><br><br>
+
+            <button onclick="saveDMX()">Save</button>
+
+            <p id="status"></p>
+        </div>
+
+        <div class="content">
+            <h3>Configuration</h3>
+
+            <button onclick="downloadConfig()">Download Config</button>
+
+            <br><br>
+
+            <input type="file" id="configFile">
+            <button onclick="uploadConfig()">Upload Config</button>
+        </div>
+
+        <!-- footer with info -->
+        <div class="footer">
+            <h2>About</h2>
+            <h3>DMX Receiver to Wireless Transmitter</h3>
+            <p>
+                DMX Receiver to Wireless Transmitter <br>
+                This is a DMX Receiver that forwards the received DMX data Wirelessly
+                to a proprietary receiver that can be used to control a Light
+            </p>
+            <h3>Key Features</h3>
+            <p>
+                <ul>
+                    <li>DMX Standard: DMX512</li>
+                    <li>DMX Universe: 1 (512 channels)</li>
+                    <li>Transmission Type: Point-to-point</li>
+                    <li>Wireless Frequency: 2.4 GHz</li>
+                    <li>Wireless Range: Up to 40 meters (line of sight)</li>
+                    <li>Receiver Compatibility: Proprietary receiver</li>
+                </ul>
+            </p>
+
+            <p>
+                © Broer4Engineering. All rights reserved. <br>
+                Developed by Broer4Engineering. <br>
+            </p>
+        </div>  
+    </div>
+
+    <script>
+        
+        var websocket;
+        window.addEventListener('load', onLoad);
+
+        function onLoad() {
+            websocket = new WebSocket('ws://' + window.location.hostname + '/ws');
+
+            websocket.onmessage = function(event) {
+                let cfg = JSON.parse(event.data);
+                document.getElementById("start").value = cfg.start;
+                document.getElementById("count").value = cfg.count;
+            };
+        }
+
+        function saveDMX(){
+            let start = document.getElementById("start").value;
+            let count = document.getElementById("count").value;
+
+            websocket.send(JSON.stringify({
+                start:start,
+                count:count
+            }));
+
+            document.getElementById("status").innerHTML = "Saved!";
+        }
+
+        function downloadConfig() {
+            window.location.href = "/downloadConfig";
+        }
+
+        function uploadConfig() {
+            let fileInput = document.getElementById("configFile");
+            let file = fileInput.files[0];
+
+            if(!file) {
+                alert("Select config file first");
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append("file", file);
+
+            fetch("/uploadConfig", {
+                method: "POST",
+                body: formData
+            })
+            .then(res => res.text())
+            .then(txt => alert(txt))
+            .catch(err => alert("Upload failed"));
+        }
+    </script>
+</body>
+
+</html>
