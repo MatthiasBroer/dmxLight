@@ -5,12 +5,16 @@
 #include <ESPAsyncWebserver.h>
 #include <arduinojson.h>
 #include "ESP32S3DMX.h"
+#include <Adafruit_NeoPixel.h>
 
 
 #define DMX_RX_PIN 10
 #define DMX_DE_PIN 4
 #define DMX_RE_PIN 5
-#define DMX_CHANNELS 512 
+#define DMX_CHANNELS 512
+
+#define PIN_NEO_PIXEL 48
+#define NUM_LEDS 1
 
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x66};
 
@@ -39,6 +43,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 config readJSONFile(const char* path);
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
+uint32_t Wheel(byte WheelPos);
 
 bool serialAvailable = false;
 uint8_t dmxStartChannel = 1; // starting channel to forward
@@ -50,6 +55,9 @@ AsyncWebSocket ws("/ws");
 esp_now_peer_info_t peerInfo;
 
 ESP32S3DMX dmx;
+
+// create NeoPixel strip object (1 LED, connected to PIN_NEO_PIXEL), RGB 
+Adafruit_NeoPixel led = Adafruit_NeoPixel(NUM_LEDS, PIN_NEO_PIXEL, NEO_GRB + NEO_KHZ800);
 
 void setup() {
    // check if a serial data is available
@@ -67,6 +75,9 @@ void setup() {
   }
 
   WiFi.mode(WIFI_STA);
+
+  // make a network a client can connect to for provisioning
+  WiFi.softAP("DMX_Receiver", "1234567890");
 
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
@@ -86,9 +97,13 @@ void setup() {
     return;
   }
   
-  // setupWebServerRoutes();
+  setupWebServerRoutes();
 
   dmx.begin();
+
+  led.begin();
+  led.show();
+  led.setBrightness(255);
 
   // Read config from SPIFFS
   config cfg = readJSONFile("/config.json");
@@ -101,15 +116,23 @@ void setup() {
   }
 
   if (serialAvailable) Serial.println("DXM Receiver Setup complete!");
+
+   led.setPixelColor(1, led.Color(125, 0, 0)); // Red for no signal
+  led.show();
 }
 
 void loop() {
   unsigned long now = millis();
+  static unsigned long lastSend = 0;
 
   if (dmx.isConnected()) {
+    
     // send update to esp-now every 300 ms or when a new frame is ready
-    if (now % 300 == 0 ) {
+    if (now - lastSend >= 10) {
+      lastSend = now;
       dmxFrameReady = true;
+      led.fill(led.Color(0, 125, 0)); // Green for DMX signal
+      led.show();
     }
 
     if (dmxFrameReady) {
@@ -131,54 +154,48 @@ void loop() {
       }
     }
   } else {
-      Serial.print("No DMX signal");
-      uint32_t lastPacket = dmx.timeSinceLastPacket();
-      if (lastPacket != 0xFFFFFFFF) {
-          Serial.print(" (last seen ");
-          Serial.print(lastPacket / 1000.0, 1);
-          Serial.print("s ago)");
-      }
-      Serial.println();
+      // Serial.print("No DMX signal");
+      // uint32_t lastPacket = dmx.timeSinceLastPacket();
+      // if (lastPacket != 0xFFFFFFFF) {
+      //     Serial.print(" (last seen ");
+      //     Serial.print(lastPacket / 1000.0, 1);
+      //     Serial.print("s ago)");
+      // }
+      // Serial.println();
+      led.fill(led.Color(125, 0, 0)); // Red for no signal
+      led.show();
+      delay(10);
   }
-
-  //receiveDMX();
 }
 
-void receiveDMX() {
-  static uint16_t channel = 0;
-  static unsigned long lastByteTime = 0;
-  static bool receiving = false;
-
-  while (Serial1.available()) {
-    uint8_t c = Serial1.read();
-    unsigned long now = micros();
-
-    // Detect BREAK by long gap (> 88 µs)
-    if (now - lastByteTime > 120) {  
-      channel = 0;
-      receiving = true;
-    }
-
-    lastByteTime = now;
-
-    if (!receiving) continue;
-
-    if (channel <= DMX_CHANNELS) {
-      dmxRxData[channel++] = c;
-    }
-
-    if (channel > DMX_CHANNELS) {
-      receiving = false;
-      dmxFrameReady = true; // full frame received
-    }
+uint32_t Wheel(byte WheelPos) {
+  WheelPos = 255 - WheelPos;
+  if (WheelPos < 85) {
+    return led.Color(255 - WheelPos * 3, 0, WheelPos * 3);
   }
+  if (WheelPos < 170) {
+    WheelPos -= 85;
+    return led.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+  }
+  WheelPos -= 170;
+  return led.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
 }
 
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len) {
     switch (type) {
         case WS_EVT_CONNECT:
+          {
             Serial.printf("WebSocket client #%u connected\n", client->id());
+
+            DynamicJsonDocument doc(256);
+            doc["start"] = dmxStartChannel;
+            doc["count"] = dmxForwardChannel;
+
+            String msg;
+            serializeJson(doc, msg);
+            client->text(msg);
+          }
             break;
         case WS_EVT_DISCONNECT:
             Serial.printf("WebSocket client #%u disconnected\n", client->id());
@@ -195,8 +212,29 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     AwsFrameInfo *info = (AwsFrameInfo*)arg;
     if (!(info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT)) return;
 
-    data[len] = 0;
-    String msg = (char*)data;
+    // data[len] = 0;
+    // String msg = (char*)data;
+    DynamicJsonDocument doc(256);
+    deserializeJson(doc, data);
+
+    if(doc.containsKey("start")){
+        dmxStartChannel = doc["start"];
+    }
+
+    if(doc.containsKey("count")){
+        dmxForwardChannel = doc["count"];
+    }
+
+    Serial.printf("New config: start=%d count=%d\n", dmxStartChannel, dmxForwardChannel);
+
+    // save to SPIFFS
+    DynamicJsonDocument saveDoc(256);
+    saveDoc["dmx_start_channel"] = dmxStartChannel;
+    saveDoc["dmx_forward_channels"] = dmxForwardChannel;
+
+    File file = SPIFFS.open("/config.json","w");
+    serializeJson(saveDoc,file);
+    file.close();
 }
 
 void setupWebServerRoutes() {
@@ -220,6 +258,47 @@ void setupWebServerRoutes() {
       response->addHeader("Content-Type", "text/css; charset=utf-8");
       request->send(response);
   });
+
+  // favicon route
+  server.on("/image/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
+      request->send(SPIFFS, "/image/favicon.ico", "image/favicon.ico");
+  });
+
+  // DOWNLOAD CONFIG
+  server.on("/downloadConfig", HTTP_GET, [](AsyncWebServerRequest *request){
+      request->send(SPIFFS, "/config.json", "application/json", true);
+  });
+
+  // UPLOAD CONFIG
+  server.on(
+      "/uploadConfig",
+      HTTP_POST,
+      [](AsyncWebServerRequest *request){
+          request->send(200, "text/plain", "Upload OK");
+          ESP.restart();   // optional but recommended after config change
+      },
+      [](AsyncWebServerRequest *request,
+        String filename,
+        size_t index,
+        uint8_t *data,
+        size_t len,
+        bool final)
+      {
+          static File uploadFile;
+
+          if(index == 0) {
+              uploadFile = SPIFFS.open("/config.json", "w");
+          }
+
+          if(uploadFile) {
+              uploadFile.write(data, len);
+          }
+
+          if(final) {
+              if(uploadFile) uploadFile.close();
+          }
+      }
+  );
 
   server.on("/save", HTTP_POST, [](AsyncWebServerRequest *request){
     String ssid, pass;
