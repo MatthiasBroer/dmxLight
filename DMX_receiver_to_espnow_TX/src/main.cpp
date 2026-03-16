@@ -189,6 +189,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
             Serial.printf("WebSocket client #%u connected\n", client->id());
 
             DynamicJsonDocument doc(256);
+            // JsonDocument doc;
             doc["start"] = dmxStartChannel;
             doc["count"] = dmxForwardChannel;
 
@@ -215,6 +216,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     // data[len] = 0;
     // String msg = (char*)data;
     DynamicJsonDocument doc(256);
+    // JsonDocument doc;
     deserializeJson(doc, data);
 
     if(doc.containsKey("start")){
@@ -225,10 +227,19 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         dmxForwardChannel = doc["count"];
     }
 
+    // if(doc["start"]){
+    //     dmxStartChannel = doc["start"];
+    // }
+
+    // if(doc["count"]){
+    //     dmxForwardChannel = doc["count"];
+    // }
+
     Serial.printf("New config: start=%d count=%d\n", dmxStartChannel, dmxForwardChannel);
 
     // save to SPIFFS
     DynamicJsonDocument saveDoc(256);
+    // JsonDocument saveDoc;
     saveDoc["dmx_start_channel"] = dmxStartChannel;
     saveDoc["dmx_forward_channels"] = dmxForwardChannel;
 
@@ -309,6 +320,7 @@ void setupWebServerRoutes() {
     if (ssid.length() > 0 && pass.length() > 0) {
         // Save to SPIFFS
         DynamicJsonDocument doc(1024);
+        // JsonDocument doc;
         doc["wifi_ssid"] = ssid;
         doc["wifi_password"] = pass;
 
@@ -345,6 +357,7 @@ config readJSONFile(const char* path) {
   }
 
   static  DynamicJsonDocument doc(1024);
+  // static JsonDocument doc;
   deserializeJson(doc, file);
   file.close();
 
