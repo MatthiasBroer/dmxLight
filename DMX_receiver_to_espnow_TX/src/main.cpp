@@ -29,11 +29,16 @@ struct config{
 };
 
 // struct that holds the DMX data to be sent via ESP-NOW
+// struct DMXDataPacket {
+//   uint8_t red;
+//   uint8_t green;
+//   uint8_t blue;
+//   uint8_t white;
+// } dmxPacket;
+
 struct DMXDataPacket {
-  uint8_t red;
-  uint8_t green;
-  uint8_t blue;
-  uint8_t white;
+  uint8_t data[32];
+  uint8_t count;
 } dmxPacket;
 
 void receiveDMX();
@@ -47,7 +52,7 @@ uint32_t Wheel(byte WheelPos);
 
 bool serialAvailable = false;
 uint8_t dmxStartChannel = 1; // starting channel to forward
-uint8_t dmxForwardChannel =4; // number of channels to forward by espnow
+uint8_t dmxForwardChannel = 32; // number of channels to forward by espnow
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -137,14 +142,16 @@ void loop() {
 
     if (dmxFrameReady) {
       dmxFrameReady = false;
-      dmxPacket.red = dmx.read(dmxStartChannel);
-      dmxPacket.green = dmx.read(dmxStartChannel + 1);  
-      dmxPacket.blue = dmx.read(dmxStartChannel + 2);
-      dmxPacket.white = dmx.read(dmxStartChannel + 3);
+      for (uint8_t i = 0; i < dmxForwardChannel && (dmxStartChannel + i) <= DMX_CHANNELS; i++) {
+        dmxPacket.data[i] = dmx.read(dmxStartChannel + i);
+      }
+      // dmxPacket.red = dmx.read(dmxStartChannel);
+      // dmxPacket.green = dmx.read(dmxStartChannel + 1);  
+      // dmxPacket.blue = dmx.read(dmxStartChannel + 2);
+      // dmxPacket.white = dmx.read(dmxStartChannel + 3);
 
-      Serial.printf("Forwarding DMX channels %d-%d: R=%d G=%d B=%d W=%d\n", 
-                    dmxStartChannel, dmxStartChannel + dmxForwardChannel - 1, 
-                    dmxPacket.red, dmxPacket.green, dmxPacket.blue, dmxPacket.white);
+      Serial.printf("Forwarding DMX channels %d-%d\n", 
+                    dmxStartChannel, dmxStartChannel + dmxForwardChannel - 1);
 
       esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &dmxPacket, sizeof(dmxPacket));
       if (result == ESP_OK) {
