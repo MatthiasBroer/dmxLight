@@ -4,20 +4,47 @@
 #include <WiFi.h>
 #include <esp_wifi.h>
 
+// modes
+// 0-9: full strip control
+// 10-19: pixel by pixel control
+
 // struct that holds the DMX data to be sent via ESP-NOW
+// struct DMXDataPacket {
+//   uint8_t red;
+//   uint8_t green;
+//   uint8_t blue;
+//   uint8_t white;
+// };// dmxPacket;
+
 struct DMXDataPacket {
+  uint8_t data[32];
+  uint8_t count;
+};
+
+struct ledStripLight {
   uint8_t red;
   uint8_t green;
   uint8_t blue;
   uint8_t white;
-};;// dmxPacket;
+};
+
+struct Segment {
+  uint16_t startLed;
+  uint16_t endLed;
+  uint8_t red;
+  uint8_t green;
+  uint8_t blue;
+  uint8_t white;
+};
 
 DMXDataPacket dmx; 
+ledStripLight ledStrip;
  
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x66};
 
 #define LED_PIN 4
-#define NUM_LEDS 20
+#define NUM_LEDS 40
+#define NUM_SEGMENTS 5
 
 // NeoPixelBus<NeoGrbwFeature, NeoEsp32Rmt0800KbpsMethod> strip(NUM_LEDS, LED_PIN);
 // NeoPixelBus<NeoGrbwFeature, NeoEsp32BitBang800KbpsMethod> strip(NUM_LEDS, LED_PIN);
@@ -26,7 +53,12 @@ NeoPixelBus<NeoGrbwFeature, NeoEsp32Rmt0800KbpsMethod> strip(NUM_LEDS, LED_PIN);
 // Base color (full intensity)
 RgbwColor WW_Color(0, 255, 0, 0);
 
+// Define segments (example: 4 segments)
+Segment segments[NUM_SEGMENTS];
+
 // functions
+void setSegments();
+void updateSegmentsFromDMX();
 void breathe(RgbwColor baseColor, byte period = 128, byte lowValue = 0, byte highValue = 255);
 bool startupChase(RgbwColor color, unsigned long speedMs = 100);
 void setLightOnStrip(RgbwColor color);
@@ -40,6 +72,7 @@ unsigned long lastUpdate = 0;
 
 int state = 0;
 
+int ledStripMode = 0; // 0 = full strip control, 10 = pixel-by-pixel control
 
 void setup() {
   Serial.begin(115200);
@@ -69,16 +102,61 @@ void loop() {
   static unsigned long lastLightUpdate = 0;
   unsigned long now = millis();
 
+  if (dmx.data[0] < 10 ) {
+    ledStrip.red = dmx.data[1];
+    ledStrip.green = dmx.data[2];
+    ledStrip.blue = dmx.data[3];
+    ledStrip.white = dmx.data[4];
+  } else if (dmx.data[0] >= 10 && dmx.data[0] < 20) {
+    // segment by segment control
+    updateSegmentsFromDMX();
+  }
+
   if (now - lastPrint >= 1000) {
     lastPrint = now;
     Serial.printf("Current DMX data: R=%d G=%d B=%d W=%d\n", 
-                  dmx.red, dmx.green, dmx.blue, dmx.white);
+                  ledStrip.red, ledStrip.green, ledStrip.blue, ledStrip.white);
   }
 
   if (now - lastLightUpdate >= 10) { // update light every 50ms for smooth breathing
     lastLightUpdate = now;
-    setLightOnStrip(RgbwColor(dmx.red, dmx.white, dmx.green, dmx.blue));
+    if (dmx.data[0] < 10) {
+      setLightOnStrip(RgbwColor(ledStrip.red, ledStrip.white, ledStrip.green, ledStrip.blue));
+    } else if (dmx.data[0] >= 10 && dmx.data[0] < 20)
+    {
+      // control for segment by segment control
+      setSegments();
+    }
   }  
+}
+
+void setSegments() {
+  for (uint16_t i = 0; i < NUM_LEDS; i++) {
+    strip.SetPixelColor(i, RgbwColor(0, 0, 0, 0));
+  }
+
+  for (uint8_t s = 0; s < NUM_SEGMENTS; s++) {
+    Segment seg = segments[s];
+
+    RgbwColor color(seg.red, seg.white, seg.green, seg.blue);
+
+    for (uint16_t i = seg.startLed; i <= seg.endLed && i < NUM_LEDS; i++) {
+      strip.SetPixelColor(i, color);
+    }
+  }
+  strip.Show();
+}
+
+void updateSegmentsFromDMX() {
+  uint8_t index = 1;
+  for (uint8_t s = 0; s < NUM_SEGMENTS; s++) {
+    segments[s].startLed = dmx.data[index++];
+    segments[s].endLed = dmx.data[index++];
+    segments[s].red = dmx.data[index++];
+    segments[s].green = dmx.data[index++];
+    segments[s].blue = dmx.data[index++];
+    segments[s].white = dmx.data[index++];
+  }
 }
 
 // Non-blocking breathing function
@@ -197,6 +275,6 @@ bool startupChase(RgbwColor color, unsigned long speedMs) {
 
 void onDataRecv(const uint8_t* mac, const uint8_t *incomingData, int len) {
   memcpy(&dmx, incomingData, sizeof(DMXDataPacket));
-  Serial.printf("Received DMX data via ESP-NOW: R=%d G=%d B=%d W=%d\n", 
-                dmx.red, dmx.green, dmx.blue, dmx.white);
+  Serial.printf("Received DMX data via ESP-NOW: MODE=%d R=%d G=%d B=%d W=%d\n", 
+                dmx.data[0], dmx.data[1], dmx.data[2], dmx.data[3], dmx.data[4]);
 }
