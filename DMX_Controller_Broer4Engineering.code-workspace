@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": "DMX_receiver_to_espnow_TX"
+		},
+		{
+			"name": "ESPNOW_RX_light",
+			"path": "ESPNOW_RX_light"
+		},
+		{
+			"name": "DMX_Controller",
+			"path": "DMX_Controller"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "DMX_receiver_to_espnow_TX"
+	}
+}
