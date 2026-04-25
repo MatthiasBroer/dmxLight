@@ -37,7 +37,7 @@ struct config{
 // } dmxPacket;
 
 struct DMXDataPacket {
-  uint8_t data[32];
+  uint8_t data[49]; // 1+(6*8)=49 channels there is 1 mode selection, and then max of 8 segments and every segment has 6 channels (start led, end led, r, g, b, w)
   uint8_t count;
 } dmxPacket;
 

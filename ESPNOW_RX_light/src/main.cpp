@@ -17,7 +17,7 @@
 // };// dmxPacket;
 
 struct DMXDataPacket {
-  uint8_t data[32];
+  uint8_t data[49]; // 1+(6*8)=49 channels there is 1 mode selection, and then max of 8 segments and every segment has 6 channels (start led, end led, r, g, b, w)
   uint8_t count;
 };
 
@@ -43,8 +43,8 @@ ledStripLight ledStrip;
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x66};
 
 #define LED_PIN 4
-#define NUM_LEDS 40
-#define NUM_SEGMENTS 5
+#define NUM_LEDS 80
+#define NUM_SEGMENTS 8
 
 // NeoPixelBus<NeoGrbwFeature, NeoEsp32Rmt0800KbpsMethod> strip(NUM_LEDS, LED_PIN);
 // NeoPixelBus<NeoGrbwFeature, NeoEsp32BitBang800KbpsMethod> strip(NUM_LEDS, LED_PIN);
